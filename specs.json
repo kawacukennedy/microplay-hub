@@ -1,0 +1,424 @@
+{
+  "prompt_title": "MicroPlay-Hub — Exhaustive Build Prompt (Production-Ready, No Payment)",
+  "version": "2025-10-28",
+  "purpose": "Create a production-ready, open-source, free-to-use web platform for 60-second browser micro-games with user-created levels, leaderboards, sharing, and a level editor. Provide scaffolding, code, infra, CI/CD, tests, and documentation.",
+  "project_meta": {
+    "repo_name": "microplay-hub",
+    "description": "Social platform for 60-second browser micro-games where players play, create, share and compete. Free for all users.",
+    "primary_goals": [
+      "Fast playable experience (<=3s to playable frame)",
+      "Creator-first level publishing & credit",
+      "Shareable result cards and short-links",
+      "Scalable leaderboards with anti-cheat measures",
+      "Accessible, mobile-first UX"
+    ],
+    "constraints": [
+      "No payment or monetization systems (explicitly excluded)",
+      "Keep initial infra cost-minimal and open-source friendly",
+      "Prioritize developer experience and clear docs"
+    ]
+  },
+  "explicit_tech_stack": {
+    "frontend": {
+      "framework": "Next.js 14 (app router) with React 18+ and TypeScript 5.x",
+      "bundler": "Vite (for dev game micro-bundles) + Next.js build for main app",
+      "ui": "Tailwind CSS v4 (utility-first), Radix UI for accessible primitives",
+      "game_engine": "Pixi.js v8 for 2D rendering (fallback: HTML5 Canvas API for simplest micro-games)",
+      "state_mgmt": "React Query (TanStack Query) for server state; Zustand for local game/editor transient state",
+      "forms": "React Hook Form",
+      "image_handling": "next/image for optimized assets (with remotePatterns for S3/MinIO)",
+      "testing": "Vitest for unit tests, Playwright for e2e",
+      "linting": "ESLint (with TypeScript rules), Prettier, Commitlint (conventional commits)",
+      "versions": {
+        "next": "14.x",
+        "react": "18.x",
+        "typescript": "5.x",
+        "tailwind": "4.x",
+        "pixi": "8.x"
+      }
+    },
+    "backend": {
+      "runtime": "Node.js 20.x",
+      "language": "TypeScript 5.x",
+      "framework": "Fastify v4 for HTTP + socket.io for realtime",
+      "orm": "Prisma v5 (PostgreSQL)",
+      "cache_queue": "Redis (latest stable) used for caching, pub/sub and BullMQ (or BullMQ-compatible) for job queues",
+      "job_worker": "Node worker processes using BullMQ or Bee-Queue",
+      "image_processing": "Sharp for thumbnail/share-card generation",
+      "static_assets": "S3-compatible (AWS S3 or MinIO for dev)",
+      "versions": {
+        "node": "20.x",
+        "fastify": "4.x",
+        "prisma": "5.x",
+        "bullmq": "2.x"
+      }
+    },
+    "db_and_storage": {
+      "primary_db": "PostgreSQL 15+ (managed e.g., Supabase, Railway, or RDS)",
+      "cache_and_realtime_store": "Redis 7+",
+      "object_storage": "AWS S3 (production) / MinIO (dev)",
+      "cdn": "Vercel/Cloudflare CDN for static & CDN-backed S3 for assets",
+      "secrets_manager": "GitHub Actions secrets for CI + cloud provider secret store for production"
+    },
+    "observability_and_devops": {
+      "ci_cd": "GitHub Actions",
+      "container": "Docker (Dockerfile + docker-compose for local dev)",
+      "orchestration": "Render or Railway for earliest deployment; Kubernetes/ECS optional later",
+      "monitoring": "Sentry for errors, Prometheus/Grafana for metrics (or managed alternative), Loki or Datadog for logs",
+      "load_testing": "k6",
+      "security_scans": "Dependabot + Snyk or GitHub advanced security"
+    }
+  },
+  "monorepo_structure": {
+    "root": [
+      "README.md",
+      "LICENSE (MIT)",
+      ".github/workflows/*",
+      "package.json (workspace)",
+      "pnpm-workspace.yaml or yarn workspaces",
+      "tsconfig.base.json",
+      "infra/",
+      "web/ (Next.js frontend + games)",
+      "api/ (Fastify backend, prisma schemas)",
+      "workers/ (job workers and image tasks)",
+      "shared/ (shared TS types & utils)",
+      "devops/ (docker-compose, local env, scripts)"
+    ]
+  },
+  "frontend_ui_spec": {
+    "design_language": {
+      "brand": {"primary": "#0EA5A4", "accent": "#7C3AED", "bg": "#0F172A"},
+      "typography": {"inter_variable": "Inter var", "scale": "modular scale"},
+      "card_style": "2xl rounded, soft shadow, p-4",
+      "motion": "Framer Motion for subtle micro-interactions (button presses, modal entrance)"
+    },
+    "core_pages_and_components": {
+      "pages": {
+        "Landing (/)" : "Hero with Play Now CTA, Featured levels carousel, How it works, Creator CTA",
+        "Browse (/games)":"Grid of games with search & filters (Trending, New, Local)",
+        "Play (/games/:slug or /levels/:id)":"GameCanvas (loads engine), Controls overlay, Live leaderboard, Share panel",
+        "Editor (/editor/:game/:draftId?)":"Split pane editor with Canvas, properties panel, asset manager, preview tab",
+        "Profile (/u/:username)":"Stats, created levels, badges, recent plays",
+        "Auth (/auth/*)":"OAuth redirect handling; guest quick flow",
+        "Admin (/admin)":"Moderation queue, flagged items, user manage - RBAC protected"
+      },
+      "components": {
+        "GameContainer": "Wrapper that lazy-loads the game engine, handles input mapping, exposes a minimal SDK to the platform so the platform can validate runs via replay or seeds.",
+        "CanvasLayer": "Pixi/Canvas surface with viewport scaling, performance telemetry",
+        "LeaderboardPanel": "pulls top N entries via API and subscribes to WS channel; shows delta animations for rank changes",
+        "ShareCardGenerator": "UI to trigger server-side image gen and short-link creation; client shows preview with social meta",
+        "EditorCanvas": "drag-drop grid, rulers, snap-to-grid, object property editor and preview",
+        "AuthButton": "OAuth buttons with fallback guest mode",
+        "ResponsiveHeader": "search, play-now, creator link, profile menu"
+      },
+      "accessibility": {
+        "keyboard": "Full keyboard navigation (start game with Enter/Space, accessible controls, ARIA labels)",
+        "colors": "Contrast ratio >=4.5:1 for body text",
+        "reduced_motion": "Respect prefers-reduced-motion"
+      },
+      "UX_microflows": {
+        "guest_play_flow": [
+          "Landing -> Play Now -> Game loads (engine chunk loaded lazily)",
+          "Client receives ephemeral guestId from /api/auth/guest -> store session in cookie (7 days)",
+          "Play 60s -> on end, show score modal with CTA: Save score / Sign up to keep history",
+          "If Save -> triggers OAuth sign-in; merge guest plays to new account via server endpoint"
+        ],
+        "signup_onboarding_flow": [
+          "User signs via Google/GitHub -> immediate redirect to 'claim username' screen -> quick tutorial popover -> suggested play or create level",
+          "Offer to import avatar from provider; set username unique check via API"
+        ],
+        "create_level_flow": [
+          "Editor -> new draft -> upload assets to presigned S3 endpoints -> drag/draw level -> validate -> preview -> publish -> queue moderation",
+          "When published: level gets slug, thumbnail, and appears in 'New' and 'Creator's profile' with status 'pending' until approved"
+        ],
+        "share_flow": [
+          "End of run -> Share modal offers: copy short link, share on Twitter/Discord, embed code; server generates Open Graph share card image and short URL",
+          "Clicking 'Challenge a friend' composes a share link with UTM tracking for viral metrics"
+        ],
+        "reporting_flow": [
+          "User clicks report on level -> provide reason -> level flagged -> entry added to moderator queue; auto-screens for profanity via 3rd party moderation API"
+        ]
+      }
+    }
+  },
+  "game_logic_and_sdk": {
+    "overall_principle": "Games are deterministic micro-engines designed for 60s runs. Each engine exposes a small SDK to the platform so the platform can validate runs via replay or seeds.",
+    "game_engine_contract": {
+      "init(config)": "initialize engine with JSON config (seed, difficulty, assets, timeLimit)",
+      "start()": "begin a run; subscribe to events",
+      "on('tick', state)": "state snapshot for deterministic replay (optional for client-side optimization)",
+      "end()": "returns result object {score, duration, replayDataHash, replayData(optional)}",
+      "serialize()": "produce level JSON (for editor storage and replay)"
+    },
+    "starter_games_detail": {
+      "Runner": {
+        "mechanics": "auto-runner, player moves up/down/duck; obstacles spawn deterministically via seed and difficulty curves",
+        "assets": "tileset, small sprites",
+        "validation": "server replays obstacle spawn with seed + uploaded minimal replay inputs to confirm score"
+      },
+      "MemoryMatch": {
+        "mechanics": "card flip pairs; shuffle via seed; score = correctPairs / timeBonus",
+        "validation": "server replays sequence based on seed & clicks"
+      },
+      "TapSpeed": {
+        "mechanics": "targets appear in random positions via seed; measure clicks per second and accuracy",
+        "validation": "server-side simple heuristics: clicks-per-second thresholds, replay hash optional"
+      }
+    },
+    "anti_cheat_design": {
+      "client_signing": {
+        "ephemeral_key_flow": "On page load, client opens WS handshake to receive ephemeralKey signed by server (valid 30s). Client uses ephemeralKey to create HMAC of the score payload before POSTing to /api/scores",
+        "server_verification": "server verifies HMAC against ephemeralKey and timestamp"
+      },
+      "replay_verification": "For Runner & MemoryMatch, request a compressed replay (delta or inputs) on suspicious top scores for server re-simulation",
+      "heuristics": "max possible score per difficulty, rate-limits per IP and per user, cluster detection (same IP many accounts), sudden rank jumps",
+      "scoring_pipeline": [
+        "quick_validate(): quick heuristics -> if pass, write to Redis ZSET and respond optimistic accepted",
+        "background_validate(): worker performs replay verification, if invalid -> revert Redis zset and mark score invalid in DB and notify user"
+      ]
+    }
+  },
+  "backend_and_database_logic": {
+    "prisma_schema_snippet": "Provide as text to use in repo",
+    "prisma_schema": "generator client { provider = \"prisma-client-js\" }\n\ndatasource db { provider = \"postgresql\" url = env(\"DATABASE_URL\") }\n\nmodel User {\n  id            String   @id @default(uuid())\n  username      String   @unique\n  email         String?  @unique\n  avatarUrl     String?\n  role          UserRole @default(USER)\n  isGuest       Boolean  @default(false)\n  createdAt     DateTime @default(now())\n  lastSeenAt    DateTime?\n  authProviders Json?\n  levels        Level[]\n  scores        Score[]\n}\n\nenum UserRole { USER CREATOR MODERATOR ADMIN }\n\nmodel Game {\n  id            String   @id @default(uuid())\n  slug          String   @unique\n  title         String\n  engine        String\n  defaultConfig Json\n  createdAt     DateTime @default(now())\n}\n\nmodel Level {\n  id            String   @id @default(uuid())\n  gameId        String\n  creatorId     String\n  title         String\n  description   String?\n  data          Json\n  thumbnailUrl  String?\n  assets        Json\n  tags          String[] @default([])\n  publishedAt   DateTime?\n  isFlagged     Boolean  @default(false)\n  playsCount    Int      @default(0)\n  likesCount    Int      @default(0)\n  createdAt     DateTime @default(now())\n  updatedAt     DateTime @updatedAt\n\n  @@index([gameId])\n  @@index([creatorId])\n}\n\nmodel Score {\n  id              String   @id @default(uuid())\n  levelId         String\n  gameId          String\n  userId          String?\n  value           Float\n  meta            Json?\n  isValidated     Boolean  @default(false)\n  validationInfo  Json?\n  createdAt       DateTime @default(now())\n\n  @@index([levelId])\n  @@index([userId])\n  @@index([value])\n}\n",
+    "sql_indexes": [
+      "CREATE INDEX idx_levels_game_published_at ON levels (game_id, published_at);",
+      "CREATE INDEX idx_scores_level_value ON scores (level_id, value DESC);",
+      "CREATE INDEX idx_users_username ON users (username);"
+    ],
+    "redis_key_design": {
+      "leaderboard_zset_alltime": "leaderboard:level:{levelId}:alltime -> ZSET(score -> member JSON {userId,username,score,scoreId})",
+      "leaderboard_zset_weekly": "leaderboard:level:{levelId}:weekly:{YYYY-WW}",
+      "leaderboard_submission_queue": "queue:scores:pending -> LIST or stream for workers to process",
+      "ephemeral_key": "ephemeralKey:{sessionId} -> HMAC secret with TTL 30s"
+    },
+    "api_contracts_and_endpoints": {
+      "convention": "All endpoints under /api return JSON. Use Authorization: Bearer <jwt> when authenticated; guest sessions use cookie 'guest_session' with ephemeral id.",
+      "openapi_snippets": [
+        {
+          "path": "/api/auth/guest",
+          "method": "POST",
+          "desc": "Creates ephemeral guest session, returns guest token and guestId",
+          "response": "{ guestId, token, expiresAt }"
+        },
+        {
+          "path": "/api/levels",
+          "method": "POST",
+          "desc": "Publish or save draft of level. Validates schema server-side and stores assets manifest.",
+          "body": "{ gameId, title, data, assets, tags, publish:boolean }"
+        },
+        {
+          "path": "/api/scores",
+          "method": "POST",
+          "desc": "Submit a score with client HMAC validation. Supports `replayData` optional for later validation.",
+          "body_example": "{ levelId, value, duration, meta:{seed, difficulty}, clientSignature, replayData(optional) }",
+          "response": "{status: 'accepted'|'queued'|'rejected', scoreId, provisionalRank? }"
+        }
+      ]
+    },
+    "server_side_logic": {
+      "score_submission_flow": [
+        "1. auth middleware: verify JWT or guest token",
+        "2. validate body schema (zod / ajv)",
+        "3. verify clientSignature via ephemeral key (exists in Redis and matches HMAC(payload + timestamp))",
+        "4. quick heuristics: check value against maxPossible(difficulty), check recent submissions by same user/IP",
+        "5a. If pass heuristics: write to Postgres scores as isValidated=false, write to Redis leaderboard ZSET optimistically, return accepted and provisionalRank",
+        "5b. If suspicious: mark queue for deep validation and return status queued (or rejected)",
+        "6. Worker picks job, performs replay verification if needed, marks score isValidated=true or rolls back Redis if invalid"
+      ],
+      "level_publish_flow": [
+        "1. User sends publish request (with presigned asset URLs already uploaded)",
+        "2. Server validates level JSON schema; scans for banned keywords via server-side profanity library and 3rd party moderation API for images",
+        "3. If passes: create level record with publishedAt=null and status pendingModeration",
+        "4. Add to moderation queue for manual review (moderator UI)",
+        "5. Moderator approves -> set publishedAt to now -> push to new levels feed and reindex search"
+      ],
+      "moderation_workflow": [
+        "Auto-flag rules: profanity, adult content, too-large asset sizes, non-allowed file types",
+        "Manual review: moderators view replay, thumbnail, assets and can Approve, Reject or Request Changes",
+        "Audit log: store moderatorId, action, reason, timestamp"
+      ],
+      "search_and_discovery": [
+        "Implement a search index (Postgres full text or Algolia for scale). Keep a 'trending' compute that uses weighted formula: recent_plays*0.6 + likes*0.3 + creator_activity*0.1",
+        "Daily cron job to recompute trending scores and cache results in Redis sorted list for fast reads"
+      ]
+    }
+  },
+  "realtime_and_ws_protocol": {
+    "transport": "Socket.IO v4 over HTTPS with Redis adapter for scale",
+    "auth": "JWT cookie or Bearer token passed in WS handshake; ephemeral session for guests",
+    "namespaces_and_events": {
+      "namespace": "/ws",
+      "events": {
+        "joinLeaderboard": {
+          "client": "{ levelId, period }",
+          "server": "subscribe client to leaderboard:level:{levelId}:period channel; send top N entries"
+        },
+        "leaderboardUpdate": {
+          "server_broadcast": "{levelId, period, delta:[{userId,username,value,rank}], timestamp }"
+        },
+        "match:join": {
+          "client": "{matchId, playerMeta}",
+          "server": "validates and adds player; emits matchState"
+        },
+        "match:input": {
+          "client": "{matchId, playerId, input, tick}",
+          "server": "authoritative tick applies input and broadcasts state diff"
+        },
+        "notifications": {
+          "server": "personal notifications when friends beat your score, level commented, etc."
+        }
+      }
+    },
+    "scaling_notes": "Use Redis pub/sub adapter for Socket.IO; ensure horizontal scaling with sticky sessions only for specialized authoritative multiplayer nodes; leaderboards are authoritative in Redis and reconciled from Postgres"
+  },
+  "level_editor_and_asset_management": {
+    "editor_features": [
+      "Canvas grid with snap-to-grid and zoom",
+      "Object palette (obstacles, enemies, powerups)",
+      "Properties panel (position, size, behavior parameters)",
+      "Preview -> run a live 60s preview of the level in an iframe or separate canvas",
+      "Export/Import JSON manifest",
+      "Autosave drafts via debounced API call",
+      "Undo/Redo stack persisted locally and with ephemeral server snapshot"
+    ],
+    "asset_upload_flow": [
+      "Client requests presigned URL from POST /api/assets/presign with metadata {filename, size, contentType}",
+      "Server validates filetype & size and returns presigned S3 URL plus assetId",
+      "Client uploads directly to S3 using presigned URL",
+      "Server verifies upload via headObject or an upload complete webhook then stores asset manifest (url, hash, size) with level draft"
+    ],
+    "asset_validation": "Image size limits (<=2MB for thumbnails, <=5MB for art), restrict executable file types, virus scan optional via ClamAV or cloud provider"
+  },
+  "image_and_share_card_generation": {
+    "server_side_card": "Use a headless rendering approach using Puppeteer or use Sharp with template layers to produce OG images with avatar, username, score, level thumbnail, and CTA text. Image saved to S3 and short URL generated via internal short-link table.",
+    "short_link_logic": {
+      "table": "short_links (id, targetUrl, slug, createdBy, createdAt, expiresAt optional)",
+      "slug_generation": "base62 6-8 chars; check uniqueness",
+      "redirect": "GET /s/:slug -> server returns 302 to targetUrl and registers 'click' event for viral metrics"
+    }
+  },
+  "deployment_and_infra": {
+    "dev_local": {
+      "docker_compose_services": [
+        "web (Next dev)",
+        "api (Fastify dev, nodemon)",
+        "postgres (official:15)",
+        "redis (latest)",
+        "minio (S3 dev)",
+        "worker (BullMQ worker)",
+        "traefik or nginx-proxy for local TLS optional"
+      ],
+      "command_examples": {
+        "start_local": "docker compose -f dev.docker-compose.yml up --build",
+        "seed": "pnpm --filter api run seed && pnpm --filter web run seed"
+      }
+    },
+    "staging_production": {
+      "frontend_hosting": "Vercel (Next.js), set branch previews for PRs",
+      "backend_hosting": "Render / Railway / Fly for simple deploys; (container registry + service orchestrator)",
+      "db_hosting": "Managed Postgres (Supabase, Neon, or RDS) with pgBouncer optional",
+      "redis_hosting": "Managed Redis (Upstash / Redis Cloud)",
+      "object_storage": "AWS S3 with bucket policy & CloudFront; use IAM roles for server access",
+      "cdn": "Vercel edge or Cloudflare to cache public assets",
+      "terraform": "Use IaC to provision infra resources (S3, RDS, Redis, IAM, secret manager)",
+      "env_management": "Use GitHub Secrets for CI and cloud secret store for runtime"
+    },
+    "ci_cd_pipeline_github_actions": {
+      "on": ["push", "pull_request"],
+      "jobs": {
+        "lint_and_tests": "install deps -> lint -> unit tests -> typecheck",
+        "build_frontend": "run next build and export if static pages exist",
+        "build_backend": "build TypeScript -> run backend unit tests",
+        "deploy_staging": "on merge to dev branch -> run infra apply to staging -> deploy containers",
+        "deploy_production": "on merge to main -> full CI -> tag -> deploy to production with manual approval"
+      },
+      "secrets_and_approvals": "Protect main branch with required reviewers and successful CI checks"
+    },
+    "runbook_and_recovery": {
+      "health_checks": "Liveness & readiness endpoints for backend (/health), monitor response time < 1s",
+      "db_migration": "Run prisma migrate deploy in CI with pre-checks in staging",
+      "rollback_strategy": "Use immutable deployments and retain last stable release; rollback to previous tag if health checks fail",
+      "incident_response": "PagerDuty or Slack alerts for error rates > threshold and automated scaling triggers"
+    }
+  },
+  "testing_and_quality": {
+    "unit_tests": "Vitest for frontend units; Jest + supertest for backend route/unit tests",
+    "integration": "Postgres test instances via testcontainers in CI; integration tests for publish level, submit score, replay validation",
+    "e2e": "Playwright scripts covering: guest_play_flow, create_level_flow, share_flow, moderation_flow",
+    "load_testing": "k6 script simulating thousands of plays per minute to observe Redis and DB behavior, focusing on leaderboard writes",
+    "security": "SAST scans, dependency vulnerability scans, content security policy (CSP), cookie flags (HttpOnly, Secure, SameSite)",
+    "test_coverage_target": "Backend critical logic >= 80% branch coverage; frontend key flows >= 70%"
+  },
+  "observability_and_metrics": {
+    "events_to_track": [
+      "play.start, play.end, score.submitted, score.validated, level.created, level.published, level.flagged, user.signup, share.created"
+    ],
+    "primary_metrics": [
+      "DAU/MAU, avg plays per user, retention D1/D7/D30, avg session length, trending coefficient"
+    ],
+    "logging": "Structured logs (JSON) emitted via pino or bunyan from Node; send stdout to log aggregator",
+    "tracing": "OpenTelemetry instrument backend for request traces, sample 1% of traces by default"
+  },
+  "security_and_privacy": {
+    "auth_security": "JWT access tokens short lived (5-15m), refresh tokens rotated and store session id in DB, revoke on suspicious behavior",
+    "data_privacy": "GDPR endpoints: /api/privacy/export-user/:id and /api/privacy/delete-user/:id",
+    "secure_headers": "Set CSP, HSTS, X-Frame-Options, X-Content-Type-Options",
+    "rate_limiting_waf": "Use Cloudflare/WAF rules for DDoS mitigation, rate limit public APIs",
+    "dependency_management": "Dependabot PRs enabled and weekly security sweep"
+  },
+  "docs_dev_guides_and_onboarding": {
+    "must_have_docs": [
+      "README: project overview and quickstart",
+      "DEVSETUP.md: local dev with docker-compose and env vars",
+      "ARCHITECTURE.md: diagrams and module responsibilities",
+      "API.md: OpenAPI spec for all endpoints",
+      "EDITOR_GUIDE.md: how to extend the level editor for new game engines",
+      "CONTRIBUTING.md and CODE_OF_CONDUCT.md"
+    ],
+    "example_readme_snippet": "Start with `pnpm install`, `pnpm dev:all` to run frontend, backend, workers and dev infra",
+    "onboarding_checklist_for_contributors": [
+      "Fork + clone repo",
+      "Run local dev with docker-compose",
+      "Run unit tests and linter",
+      "Create feature branch using conventional commit prefixes"
+    ]
+  },
+  "deliverables_to_generate": {
+    "scaffold_tasks": [
+      "Monorepo scaffold with workspaces and scripts",
+      "Next.js frontend with core routes & minimal UI theme",
+      "Pixi.js sample Runner game with GameContainer integration",
+      "Fastify backend with auth, levels, scores endpoints and WebSocket namespace",
+      "Prisma schema + migrations + seed script with demo users & levels",
+      "BullMQ worker example for replay validation & share-image generation using Sharp",
+      "Dockerfiles for web, api, workers and docker-compose dev manifest",
+      "GitHub Actions CI workflows for lint/test/build and staging deploy",
+      "OpenAPI spec for public endpoints and Postman collection",
+      "Playwright e2e tests for primary flows",
+      "Infra Terraform templates for S3, Postgres, Redis (modules) - parameterized and optional for dev",
+      "Comprehensive README, Architecture.md, and deployment guide"
+    ],
+    "code_quality_requirements": [
+      "TypeScript strict mode",
+      "ESLint and Prettier enforced in CI",
+      "Pre-commit hooks: lint-staged to run quick checks",
+      "All secrets from env vars only"
+    ]
+  },
+  "final_instructions_for_ai_or_dev_team": {
+    "priority": "Focus on a fully working MVP that covers: play flow, three starter games, level editor for Runner, score submission pipeline, leaderboards (Redis), share-card generation, and moderation queue. Remove any billing/payment code.",
+    "step_by_step_suggestion": [
+      "1. Scaffold monorepo and set up workspace tooling.",
+      "2. Implement backend core models and endpoints with Prisma + Fastify.",
+      "3. Implement Next.js frontend shells (Landing, Play, Editor, Profile).",
+      "4. Build Runner game in Pixi.js hooking to GameContainer and test replay-based validation locally.",
+      "5. Wire up Redis leaderboards and optimistic write pipeline with worker-based validation.",
+      "6. Add share-card worker using Sharp and store images in MinIO locally -> S3 in prod.",
+      "7. Create moderation UI and seed 10 demo creator levels for beta launch.",
+      "8. Add observability, CI pipelines, tests, and infra templates.",
+      "9. Deploy to staging and run load-tests, fix bottlenecks, then deploy to production with feature-gated release."
+    ],
+    "notes": "When generating code, annotate complex sections with TODO comments pointing to this spec (e.g., 'TODO: server-side replay verification must be hardened before high-scale launches'). Keep the project modular so new games and SDKs can be added easily."
+  }
+}

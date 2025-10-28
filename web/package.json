@@ -1,0 +1,37 @@
+{
+  "name": "@microplay/web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "clean": "rm -rf .next"
+  },
+  "dependencies": {
+    "next": "14.x",
+    "react": "18.x",
+    "react-dom": "18.x",
+    "@tanstack/react-query": "^5.0.0",
+    "zustand": "^4.0.0",
+    "socket.io-client": "^4.0.0",
+    "pixi.js": "8.x",
+    "@radix-ui/react-dialog": "^1.0.0",
+    "@radix-ui/react-dropdown-menu": "^2.0.0",
+    "@radix-ui/react-tabs": "^1.0.0",
+    "framer-motion": "^11.0.0",
+    "react-hook-form": "^7.0.0",
+    "tailwindcss": "4.x",
+    "@microplay/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0",
+    "@playwright/test": "^1.0.0"
+  }
+}

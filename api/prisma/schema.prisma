@@ -1,0 +1,84 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  username      String   @unique
+  email         String?  @unique
+  avatarUrl     String?
+  role          UserRole @default(USER)
+  isGuest       Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  lastSeenAt    DateTime?
+  authProviders Json?
+  levels        Level[]
+  scores        Score[]
+
+  @@index([username])
+}
+
+enum UserRole {
+  USER
+  CREATOR
+  MODERATOR
+  ADMIN
+}
+
+model Game {
+  id            String   @id @default(uuid())
+  slug          String   @unique
+  title         String
+  engine        String
+  defaultConfig Json
+  createdAt     DateTime @default(now())
+}
+
+model Level {
+  id            String   @id @default(uuid())
+  gameId        String
+  creatorId     String
+  title         String
+  description   String?
+  data          Json
+  thumbnailUrl  String?
+  assets        Json
+  tags          String[] @default([])
+  publishedAt   DateTime?
+  isFlagged     Boolean  @default(false)
+  playsCount    Int      @default(0)
+  likesCount    Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  creator User @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  scores  Score[]
+
+  @@index([gameId])
+  @@index([creatorId])
+  @@index([publishedAt])
+}
+
+model Score {
+  id              String   @id @default(uuid())
+  levelId         String
+  gameId          String
+  userId          String?
+  value           Float
+  meta            Json?
+  isValidated     Boolean  @default(false)
+  validationInfo  Json?
+  createdAt       DateTime @default(now())
+
+  level Level  @relation(fields: [levelId], references: [id], onDelete: Cascade)
+  user  User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([levelId])
+  @@index([userId])
+  @@index([value])
+}

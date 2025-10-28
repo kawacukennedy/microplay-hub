@@ -1,0 +1,5 @@
+packages:
+  - 'web'
+  - 'api'
+  - 'workers'
+  - 'shared'
