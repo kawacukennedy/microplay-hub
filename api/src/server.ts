@@ -16,6 +16,19 @@ const fastify = Fastify({
   },
 })
 
+// Register routes
+fastify.register(import('./routes/auth'))
+fastify.register(import('./routes/levels'))
+fastify.register(import('./routes/scores'))
+fastify.register(import('./routes/assets'))
+fastify.register(import('./routes/shortlinks'))
+fastify.register(import('./routes/share'))
+fastify.register(import('./routes/keys'))
+fastify.register(import('./routes/moderation'))
+
+// Add hooks
+fastify.addHook('preHandler', optionalAuth)
+
 // Socket.IO namespace
 io.of('/ws').on('connection', (socket) => {
   console.log('User connected:', socket.id)

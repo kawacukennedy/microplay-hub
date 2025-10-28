@@ -1,0 +1,723 @@
+openapi: 3.0.3
+info:
+  title: MicroPlay Hub API
+  description: API for the MicroPlay Hub social gaming platform
+  version: 1.0.0
+  contact:
+    name: MicroPlay Hub Team
+    url: https://github.com/kawacukennedy/microplay-hub
+
+servers:
+  - url: http://localhost:3001
+    description: Development server
+  - url: https://api.microplay-hub.com
+    description: Production server
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /auth/guest:
+    post:
+      summary: Create guest session
+      responses:
+        '200':
+          description: Guest session created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  guestId:
+                    type: string
+                  token:
+                    type: string
+                  expiresAt:
+                    type: string
+                    format: date-time
+
+  /auth/oauth/callback:
+    post:
+      summary: OAuth callback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                provider:
+                  type: string
+                  enum: [google, github]
+                code:
+                  type: string
+                guestId:
+                  type: string
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  token:
+                    type: string
+                  refreshToken:
+                    type: string
+
+  /auth/me:
+    get:
+      summary: Get current user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /games:
+    get:
+      summary: List games
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of games
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  games:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Game'
+                  total:
+                    type: integer
+
+  /levels:
+    get:
+      summary: List levels
+      parameters:
+        - name: gameId
+          in: query
+          schema:
+            type: string
+        - name: creatorId
+          in: query
+          schema:
+            type: string
+        - name: published
+          in: query
+          schema:
+            type: boolean
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of levels
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  levels:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Level'
+                  total:
+                    type: integer
+
+    post:
+      summary: Create level
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                gameId:
+                  type: string
+                title:
+                  type: string
+                description:
+                  type: string
+                data:
+                  type: object
+                assets:
+                  type: array
+                  items:
+                    type: string
+                tags:
+                  type: array
+                  items:
+                    type: string
+                publish:
+                  type: boolean
+                  default: false
+              required:
+                - gameId
+                - title
+                - data
+      responses:
+        '200':
+          description: Level created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  levelId:
+                    type: string
+                  status:
+                    type: string
+                    enum: [draft_saved, pending_moderation]
+
+  /levels/{id}:
+    get:
+      summary: Get level
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Level data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  level:
+                    $ref: '#/components/schemas/Level'
+
+    put:
+      summary: Update level
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                data:
+                  type: object
+                publish:
+                  type: boolean
+      responses:
+        '200':
+          description: Level updated
+
+    delete:
+      summary: Delete level
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Level deleted
+
+  /scores:
+    post:
+      summary: Submit score
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                levelId:
+                  type: string
+                value:
+                  type: number
+                duration:
+                  type: number
+                meta:
+                  type: object
+                clientSignature:
+                  type: string
+                sessionId:
+                  type: string
+                timestamp:
+                  type: number
+                replayData:
+                  type: object
+              required:
+                - levelId
+                - value
+                - duration
+                - clientSignature
+                - sessionId
+                - timestamp
+      responses:
+        '200':
+          description: Score submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [accepted, queued, rejected]
+                  scoreId:
+                    type: string
+                  provisionalRank:
+                    type: integer
+
+  /scores/leaderboard/{levelId}:
+    get:
+      summary: Get leaderboard
+      parameters:
+        - name: levelId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [alltime, weekly]
+            default: alltime
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Leaderboard data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  leaderboard:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LeaderboardEntry'
+
+  /assets/presign:
+    post:
+      summary: Get presigned URL for asset upload
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                filename:
+                  type: string
+                size:
+                  type: integer
+                contentType:
+                  type: string
+                levelId:
+                  type: string
+              required:
+                - filename
+                - size
+                - contentType
+      responses:
+        '200':
+          description: Presigned URL generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  assetId:
+                    type: string
+                  presignedUrl:
+                    type: string
+                  publicUrl:
+                    type: string
+
+  /assets/confirm/{assetId}:
+    post:
+      summary: Confirm asset upload
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: assetId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Asset confirmed
+
+  /shortlinks:
+    post:
+      summary: Create short link
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                targetUrl:
+                  type: string
+                  format: uri
+                expiresAt:
+                  type: string
+                  format: date-time
+              required:
+                - targetUrl
+      responses:
+        '200':
+          description: Short link created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  shortlink:
+                    $ref: '#/components/schemas/ShortLink'
+
+  /s/{slug}:
+    get:
+      summary: Redirect short link
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirect to target URL
+
+  /share/generate:
+    post:
+      summary: Generate share image
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                score:
+                  type: number
+                levelTitle:
+                  type: string
+                username:
+                  type: string
+              required:
+                - score
+                - levelTitle
+      responses:
+        '200':
+          description: Share image generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  imageUrl:
+                    type: string
+
+  /keys/ephemeral:
+    get:
+      summary: Get ephemeral key for client signing
+      responses:
+        '200':
+          description: Ephemeral key generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ephemeralKey:
+                    type: string
+                  sessionId:
+                    type: string
+                  expiresAt:
+                    type: integer
+
+  /moderation/levels:
+    get:
+      summary: Get pending levels for moderation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Pending levels
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  levels:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Level'
+                  total:
+                    type: integer
+
+  /moderation/levels/{id}/approve:
+    post:
+      summary: Approve level
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                moderatorId:
+                  type: string
+                notes:
+                  type: string
+              required:
+                - moderatorId
+      responses:
+        '200':
+          description: Level approved
+
+  /moderation/levels/{id}/reject:
+    post:
+      summary: Reject level
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                moderatorId:
+                  type: string
+                reason:
+                  type: string
+                notes:
+                  type: string
+              required:
+                - moderatorId
+                - reason
+      responses:
+        '200':
+          description: Level rejected
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        email:
+          type: string
+        avatarUrl:
+          type: string
+        role:
+          type: string
+          enum: [USER, CREATOR, MODERATOR, ADMIN]
+        isGuest:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        lastSeenAt:
+          type: string
+          format: date-time
+
+    Game:
+      type: object
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        title:
+          type: string
+        engine:
+          type: string
+        defaultConfig:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+
+    Level:
+      type: object
+      properties:
+        id:
+          type: string
+        gameId:
+          type: string
+        creatorId:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        data:
+          type: object
+        thumbnailUrl:
+          type: string
+        assets:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        publishedAt:
+          type: string
+          format: date-time
+        isFlagged:
+          type: boolean
+        playsCount:
+          type: integer
+        likesCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        creator:
+          $ref: '#/components/schemas/User'
+
+    LeaderboardEntry:
+      type: object
+      properties:
+        userId:
+          type: string
+        username:
+          type: string
+        score:
+          type: number
+        scoreId:
+          type: string
+        rank:
+          type: integer
+
+    ShortLink:
+      type: object
+      properties:
+        id:
+          type: string
+        slug:
+          type: string
+        targetUrl:
+          type: string
+        shortUrl:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
